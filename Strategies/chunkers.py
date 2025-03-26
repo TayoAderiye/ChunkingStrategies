@@ -59,16 +59,16 @@ def recursive_chunking_method(text, chunk_size=500, chunk_overlap=50):
     
     return chunks
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-def recursive_chunking_method(text, chunk_size=500, chunk_overlap=50):
+# from langchain.text_splitter import RecursiveCharacterTextSplitter
+# def recursive_chunking_method(text, chunk_size=500, chunk_overlap=50):
 
-    # Create a text splitter
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+#     # Create a text splitter
+#     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     
-    # Split the text using the splitter
-    chunks = splitter.split_text(text)
+#     # Split the text using the splitter
+#     chunks = splitter.split_text(text)
     
-    return chunks
+#     return chunks
 
 def chunk_text_with_overlap_object_return(text, overlap=1):
     """

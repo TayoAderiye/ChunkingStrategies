@@ -1,13 +1,66 @@
 import time
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from Utils.pdfReader import extract_text_from_pdf, extract_text_from_pdf_new,extract_text_and_metadata_new,text_to_lines
 from Utils.helpers import normalize_text
+import uuid
+import os
+import random
 from Strategies.chunkers import semantic_chunking_mark_down,custom_semantic_chunking,recursive_chunking_method, chunk_text_with_overlap_object_return,sentence_chunking,split_sentences_by_spacy,chunk_markdown_by_header
 from Utils.markdown import convert_to_markdown_return_string
 from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+# Allow requests from your Angular app (localhost:4200)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4200"],  # 👈 Replace with frontend URL in production
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
+@app.post("/chunk/text-overlap-file-upload")
+async def chunk_text_overlap_upload(file: UploadFile = File(...), overlap: int = 1):
+    """
+    Processes the uploaded PDF file, extracts text, applies chunking, and measures execution time.
+
+    :param file: The uploaded PDF file.
+    :param overlap: Number of overlapping sentences per chunk (default = 1).
+    :return: JSON response with chunks and execution time.
+    """
+    try:
+        # Start total execution timer
+        start_total_time = time.time()
+
+        # Generate a unique filename using UUID and timestamp (milliseconds)
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+
+        # Save the uploaded file to the 'Documents/' directory with the unique filename
+        file_path = os.path.join("Documents", unique_filename)
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Extract text from the uploaded PDF
+        text = extract_text_from_pdf(file_path)
+
+        # Apply chunking
+        chunks, chunking_time = chunk_text_with_overlap_object_return(normalize_text(text), overlap=overlap)
+
+        # Calculate total execution time (includes PDF extraction and chunking)
+        total_execution_time = time.time() - start_total_time
+
+        return {
+            "total_chunks": len(chunks),
+            "chunking_time": f"{chunking_time:.4f} seconds",
+            "total_execution_time": f"{total_execution_time:.4f} seconds",
+            "chunks": random.sample(chunks, min(5, len(chunks)))  # Select up to 5 random chunks
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.get("/chunk/text-overlap")
 def chunk_text_overlap(overlap: int = 1):
@@ -41,6 +94,48 @@ def chunk_text_overlap(overlap: int = 1):
     except Exception as e:
         return {"error": str(e)}
 
+
+@app.post("/chunk/recursive-chunking-upload")
+async def recursive_chunk_upload(file: UploadFile = File(...)):
+    """
+    Processes the uploaded PDF file, extracts text, applies chunking, and measures execution time.
+
+    :param file: The uploaded PDF file.
+    :param overlap: Number of overlapping sentences per chunk (default = 1).
+    :return: JSON response with chunks and execution time.
+    """
+    try:
+        # Start total execution timer
+        start_total_time = time.time()
+
+        # Generate a unique filename using UUID and timestamp (milliseconds)
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+
+        # Save the uploaded file to the 'Documents/' directory with the unique filename
+        file_path = os.path.join("Documents", unique_filename)
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Extract text from the uploaded PDF
+        text = extract_text_from_pdf(file_path)
+        chunk_size: int = 500
+        chunk_overlap: int = 50
+        # Apply chunking
+        chunks = recursive_chunking_method(normalize_text(text), chunk_size,chunk_overlap)
+
+        # Calculate total execution time (includes PDF extraction and chunking)
+        total_execution_time = time.time() - start_total_time
+
+        return {
+            "total_chunks": len(chunks),
+            # "chunking_time": f"{chunking_time:.4f} seconds",
+            "total_execution_time": f"{total_execution_time:.4f} seconds",
+            "chunks": random.sample(chunks, min(5, len(chunks)))  # Select up to 5 random chunks
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+    
 @app.get("/chunk/recursive-chunking")
 def recursive_chunk(chunk_size: int = 500, chunk_overlap: int = 50):
     """
@@ -58,13 +153,13 @@ def recursive_chunk(chunk_size: int = 500, chunk_overlap: int = 50):
         text = extract_text_from_pdf('Documents/CH3-data.pdf')
 
         # Apply chunking
-        chunks, chunking_time = recursive_chunking_method(normalize_text(text), chunk_size,chunk_overlap)
+        chunks = recursive_chunking_method(normalize_text(text), chunk_size,chunk_overlap)
         # Calculate total execution time (includes PDF extraction and chunking)
         total_execution_time = time.time() - start_total_time
 
         return {
             "total_chunks": len(chunks),
-            "chunking_time": f"{chunking_time:.4f} seconds",
+            # "chunking_time": f"{chunking_time:.4f} seconds",
             "total_execution_time": f"{total_execution_time:.4f} seconds",
             "chunks": chunks[:5]  # Return only first 5 chunks for preview
         }
@@ -193,4 +288,39 @@ def chunking_by_headers_new():
             return {"error": str(e)}
 
 
-    
+@app.post("/chunk/masc-chunking-upload")
+async def chunking_by_headers_new_upload(file: UploadFile = File(...)):
+    """
+    Processes the uploaded PDF file, extracts text, applies chunking, and measures execution time.
+
+    :param file: The uploaded PDF file.
+    :return: JSON response with chunks and execution time.
+    """
+    try:
+        # Start total execution timer
+        start_total_time = time.time()
+
+        # Generate a unique filename using UUID and timestamp (milliseconds)
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+
+        # Save the uploaded file to the 'Documents/' directory with the unique filename
+        file_path = os.path.join("Documents", unique_filename)
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Extract text from the uploaded PDF
+        markdownstring = convert_to_markdown_return_string(file_path)
+        chunks = semantic_chunking_mark_down(markdownstring)
+
+        # Calculate total execution time (includes PDF extraction and chunking)
+        total_execution_time = time.time() - start_total_time
+
+        return {
+            "total_chunks": len(chunks),
+            # "chunking_time": f"{chunking_time:.4f} seconds",
+            "total_execution_time": f"{total_execution_time:.4f} seconds",
+            "chunks": random.sample(chunks, min(5, len(chunks)))  # Select up to 5 random chunks
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
