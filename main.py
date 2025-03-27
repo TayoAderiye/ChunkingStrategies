@@ -9,6 +9,10 @@ import random
 from Strategies.chunkers import semantic_chunking_mark_down,custom_semantic_chunking,recursive_chunking_method, chunk_text_with_overlap_object_return,sentence_chunking,split_sentences_by_spacy,chunk_markdown_by_header
 from Utils.markdown import convert_to_markdown_return_string
 from dotenv import load_dotenv
+import nest_asyncio
+import asyncio
+nest_asyncio.apply()
+
 load_dotenv()
 
 app = FastAPI()
@@ -289,7 +293,7 @@ def chunking_by_headers_new():
 
 
 @app.post("/chunk/masc-chunking-upload")
-async def chunking_by_headers_new_upload(file: UploadFile = File(...)):
+def chunking_by_headers_new_upload(file: UploadFile = File(...)):
     """
     Processes the uploaded PDF file, extracts text, applies chunking, and measures execution time.
 
@@ -306,7 +310,8 @@ async def chunking_by_headers_new_upload(file: UploadFile = File(...)):
         # Save the uploaded file to the 'Documents/' directory with the unique filename
         file_path = os.path.join("Documents", unique_filename)
         with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
+            buffer.write(file.file.read())  # Sync version, no await
+
 
         # Extract text from the uploaded PDF
         markdownstring = convert_to_markdown_return_string(file_path)
