@@ -266,6 +266,53 @@ def chunking_by_headers():
             return {"error": str(e)}
     
 
+@app.post("/chunk/chunking-by-sematics-upload")
+async def chunking_by_sematics_upload(file: UploadFile = File(...)):
+    """
+    Processes the uploaded PDF file, extracts text, applies chunking, and measures execution time.
+
+    :param file: The uploaded PDF file.
+    :param overlap: Number of overlapping sentences per chunk (default = 1).
+    :return: JSON response with chunks and execution time.
+    """
+    try:
+        # Start total execution timer
+        start_total_time = time.time()
+
+        # Generate a unique filename using UUID and timestamp (milliseconds)
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+
+        # Save the uploaded file to the 'Documents/' directory with the unique filename
+        file_path = os.path.join("Documents", unique_filename)
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Extract and clean up text
+        raw_text = extract_text_from_pdf(file_path)
+        normalized_text = normalize_text(raw_text)
+
+        # Split text into sentences or lines before chunking
+        sentences = [s.strip() for s in normalized_text.split('.') if s.strip()]  # Simple sentence splitting
+        if len(sentences) < 2:
+            raise ValueError("Not enough text content for semantic chunking.")
+        
+        # Call semantic chunking
+        semantic_chunks = custom_semantic_chunking(sentences)
+
+        flattened_chunks = [" ".join(chunk) for chunk in semantic_chunks]
+
+        total_execution_time = time.time() - start_total_time
+
+
+        return {
+            "total_chunks": len(flattened_chunks),
+            # "chunking_time": f"{chunking_time:.4f} seconds",
+            "total_execution_time": f"{total_execution_time:.4f} seconds",
+            "chunks": random.sample(flattened_chunks, min(5, len(flattened_chunks)))  # Select up to 5 random chunks
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/chunking-by-sematics-new")
